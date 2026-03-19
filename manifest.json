@@ -1,16 +1,14 @@
 {
-  "name": "BTC Signal",
+  "name": "BTC Signal Pro",
   "short_name": "BTC Signal",
-  "description": "Análisis de Bitcoin por Claude AI",
-  "start_url": "/",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#050508",
   "theme_color": "#050508",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "icon.png",
-      "sizes": "192x192",
+      "sizes": "180x180",
       "type": "image/png"
     },
     {
