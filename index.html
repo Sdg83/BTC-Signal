@@ -154,14 +154,33 @@ async function getIndicators(){
 
 // 📰 noticias
 async function getNews(){
+
   try{
-    const r = await fetch("https://api.coingecko.com/api/v3/search/trending");
-    const d = await r.json();
-    D.news = d.coins?.length
-      ? "🔥 Tendencia: " + d.coins[0].item.name
-      : "Mercado sin eventos fuertes";
+    const res = await fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT");
+    const data = await res.json();
+
+    let change = parseFloat(data.priceChangePercent);
+
+    // 🧠 lógica tipo analista
+    if(change < -2){
+      D.news = "📉 BTC cae tras presión macro. Mercado afectado por expectativas de tasas altas de la FED y menor liquidez.";
+    }
+    else if(change > 2){
+      D.news = "📈 BTC sube impulsado por optimismo del mercado. Posibles expectativas de recorte de tasas o mejora macro.";
+    }
+    else{
+      D.news = "⚖ Mercado en rango. Inversores atentos a decisiones de la FED, inflación y contexto global.";
+    }
+
+    // 🧠 contexto especial (simulado real)
+    const today = new Date().getHours();
+
+    if(today < 15){
+      D.news += "<br><br>🕒 Mercado en espera de datos macro o eventos clave (FED, inflación, empleo).";
+    }
+
   }catch{
-    D.news = "Mercado atento a tasas FED / inflación";
+    D.news = "🌐 Mercado atento a tasas de interés, inflación y decisiones de la FED.";
   }
 }
 
