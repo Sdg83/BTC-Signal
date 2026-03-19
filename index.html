@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BTC Signal PRO</title>
+<title>BTC Signal PRO+</title>
 
 <script src="https://s3.tradingview.com/tv.js"></script>
 
@@ -12,18 +12,20 @@ body {
   background:#050508;
   color:#fff;
   font-family:monospace;
-  text-align:center;
   padding:10px;
+  text-align:center;
 }
+
+h2 { margin-bottom:10px; }
 
 .card {
   background:#0b0b15;
   border-radius:10px;
-  padding:20px;
+  padding:15px;
   margin-bottom:10px;
 }
 
-.price { font-size:32px; font-weight:bold; }
+.price { font-size:34px; font-weight:bold; }
 
 .up { color:#00ff9d }
 .down { color:#ff3a5c }
@@ -31,29 +33,49 @@ body {
 .signal {
   font-size:22px;
   padding:10px;
-  margin-top:10px;
   border-radius:6px;
+  margin-top:10px;
 }
 
 .buy { background:#00ff9d; color:#000 }
 .sell { background:#ff3a5c }
 .hold { background:#f5a623; color:#000 }
 
+button {
+  margin:5px;
+  padding:6px 10px;
+  border:none;
+  border-radius:5px;
+  background:#111;
+  color:#fff;
+}
+
+button.active {
+  background:#f7931a;
+  color:#000;
+}
+
 </style>
 </head>
 
 <body>
 
-<h2>BTC SIGNAL PRO</h2>
+<h2>BTC SIGNAL PRO+</h2>
 
 <div class="card">
-  <div id="price" class="price">Cargando...</div>
+  <div id="price" class="price">...</div>
   <div id="change"></div>
 </div>
 
 <div class="card">
   <div id="signal" class="signal">...</div>
-  <div id="rsi"></div>
+  <div id="info"></div>
+</div>
+
+<div class="card">
+  <button onclick="setTF('1h')" id="b1h">1H</button>
+  <button onclick="setTF('4h')" id="b4h">4H</button>
+  <button onclick="setTF('1d')" id="b1d">1D</button>
 </div>
 
 <div class="card">
@@ -62,16 +84,36 @@ body {
 
 <script>
 
+let TF = "1h";
+
 let D = {
   price:0,
   change:0,
   rsi:50,
   ema20:0,
   ema50:0,
-  signal:"..."
+  signal:"",
 };
 
-// 📊 Obtener precio
+// 🔊 alerta simple
+function beep(){
+  let ctx = new (window.AudioContext || window.webkitAudioContext)();
+  let osc = ctx.createOscillator();
+  osc.connect(ctx.destination);
+  osc.start();
+  setTimeout(()=>osc.stop(),150);
+}
+
+// ⏱ cambiar timeframe
+function setTF(tf){
+  TF = tf;
+  document.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+  document.getElementById("b"+tf).classList.add("active");
+  loadChart();
+  update();
+}
+
+// 📊 precio
 async function getPrice(){
   const res = await fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT");
   const data = await res.json();
@@ -80,74 +122,78 @@ async function getPrice(){
   D.change = parseFloat(data.priceChangePercent);
 }
 
-// 📈 Obtener velas y calcular RSI + EMAs
+// 📈 indicadores
 async function getIndicators(){
-  const res = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=50");
+
+  const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${TF}&limit=100`);
   const data = await res.json();
 
   const closes = data.map(c => parseFloat(c[4]));
 
-  // RSI simple
   let gains=0, losses=0;
   for(let i=1;i<closes.length;i++){
     let diff = closes[i]-closes[i-1];
     if(diff>0) gains+=diff;
     else losses-=diff;
   }
+
   let rs = gains/(losses || 1);
   D.rsi = 100-(100/(1+rs));
 
-  // EMA
-  const ema = (period)=>{
-    let k = 2/(period+1);
-    let ema = closes[0];
-    closes.forEach(p=>{
-      ema = p*k + ema*(1-k);
-    });
-    return ema;
+  const ema = (p)=>{
+    let k = 2/(p+1);
+    let e = closes[0];
+    closes.forEach(v=> e = v*k + e*(1-k));
+    return e;
   }
 
   D.ema20 = ema(20);
   D.ema50 = ema(50);
 }
 
-// 🧠 Señal automática
+// 🧠 señal PRO
 function calculateSignal(){
 
-  if(D.price > D.ema20 && D.rsi > 55){
+  let prev = D.signal;
+
+  if(D.price > D.ema20 && D.rsi > 60){
     D.signal = "COMPRAR";
   }
-  else if(D.price < D.ema50 && D.rsi < 45){
+  else if(D.price < D.ema50 && D.rsi < 40){
     D.signal = "VENDER";
   }
   else{
     D.signal = "MANTENER";
   }
+
+  // 🔔 alerta cambio señal
+  if(prev && prev !== D.signal){
+    beep();
+    alert("Cambio de señal: " + D.signal);
+  }
 }
 
-// 🎨 Render
+// 🎨 render
 function render(){
 
-  let priceEl = document.getElementById("price");
-  let changeEl = document.getElementById("change");
-  let signalEl = document.getElementById("signal");
-  let rsiEl = document.getElementById("rsi");
+  price.innerHTML = "$" + D.price.toFixed(0);
 
-  priceEl.innerHTML = "$" + D.price.toFixed(0);
+  change.innerHTML = D.change.toFixed(2)+"%";
+  change.className = D.change>=0?"up":"down";
 
-  changeEl.innerHTML = D.change.toFixed(2) + "%";
-  changeEl.className = D.change >=0 ? "up" : "down";
-
-  signalEl.innerHTML = D.signal;
-
-  signalEl.className = "signal " + 
+  signal.innerHTML = D.signal;
+  signal.className = "signal " +
     (D.signal==="COMPRAR"?"buy":
      D.signal==="VENDER"?"sell":"hold");
 
-  rsiEl.innerHTML = "RSI: " + D.rsi.toFixed(0);
+  info.innerHTML = `
+    RSI: ${D.rsi.toFixed(0)} <br>
+    EMA20: ${D.ema20.toFixed(0)} <br>
+    EMA50: ${D.ema50.toFixed(0)}
+  `;
 }
 
-// 🔄 Update completo
+// 🔄 update
 async function update(){
   await getPrice();
   await getIndicators();
@@ -158,13 +204,20 @@ async function update(){
 setInterval(update,10000);
 update();
 
-// 📊 TradingView
-new TradingView.widget({
-  container_id: "tv-chart",
-  symbol: "BINANCE:BTCUSDT",
-  interval: "60",
-  theme: "dark"
-});
+// 📊 chart
+function loadChart(){
+  document.getElementById("tv-chart").innerHTML="";
+  new TradingView.widget({
+    container_id:"tv-chart",
+    symbol:"BINANCE:BTCUSDT",
+    interval: TF==="1h"?"60":TF==="4h"?"240":"D",
+    theme:"dark",
+    style:"1",
+    hide_top_toolbar:false
+  });
+}
+
+loadChart();
 
 </script>
 
